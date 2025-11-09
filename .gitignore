@@ -198,7 +198,10 @@ ai_docs/research/
 
 /specs
 
-agents/
+# Exclude agent working directories but not code
+apps/content-gen/agents/
+# Keep agent code implementations
+!apps/realtime-poc/big_three_realtime_agents/agents/
 
 app_docs/
 
