@@ -179,26 +179,60 @@ GEMINI_API_KEY=your_gemini_key
 
 ### 설치
 
-1. **저장소 클론**
+#### 🚀 방법 1: 자동 설치 (권장)
+
 ```bash
+# 1. 저장소 클론
 git clone https://github.com/cafe8601/-multi-agent-learning.git
 cd multi-agent-learning
+
+# 2. 자동 설치 스크립트 실행
+./setup.sh
+
+# 3. .env 파일 편집 (API 키 입력)
+nano .env  # 또는 원하는 에디터 사용
 ```
 
-2. **환경 변수 설정**
+**setup.sh가 자동으로 처리하는 것**:
+- ✅ Python 버전 확인
+- ✅ 가상 환경 생성
+- ✅ 모든 Python 의존성 설치
+- ✅ Playwright 브라우저 설치
+- ✅ 필요한 디렉토리 생성
+- ✅ .env 파일 생성
+
+#### 📦 방법 2: 수동 설치
+
 ```bash
+# 1. 저장소 클론
+git clone https://github.com/cafe8601/-multi-agent-learning.git
+cd multi-agent-learning
+
+# 2. 환경 변수 설정
 cp .env.sample .env
 # .env 파일을 열어 API 키 입력
-```
 
-3. **의존성 설치**
-```bash
-# Python 의존성
+# 3. 의존성 설치
 pip install -r requirements.txt
 
-# Playwright 브라우저 설치
+# 4. Playwright 브라우저 설치
 playwright install chromium
+playwright install-deps chromium  # Linux only
 ```
+
+#### 🎤 방법 3: 음성 모드 사용 시
+
+음성 모드를 사용하려면 추가 오디오 설정이 필요합니다.
+
+```bash
+# 오디오 설정 가이드 확인
+cat AUDIO_SETUP_GUIDE.md
+
+# 오디오 테스트 실행
+python scripts/test_audio.py
+```
+
+**참고**: 음성 모드는 **선택사항**입니다. 텍스트 모드만으로도 모든 기능 사용 가능합니다.
 
 ### Big Three 실행
 
@@ -224,6 +258,27 @@ cp agentpool/tier2-specialized/languages/python-pro.md ~/.claude/agents/
 
 # Claude Code에서 사용
 # 예: "Use the python-pro agent to refactor this code"
+```
+
+### 테스트 실행
+
+시스템이 올바르게 작동하는지 확인:
+
+```bash
+# 모든 테스트 실행
+pytest
+
+# 빠른 단위 테스트만
+pytest tests/unit/ -v
+
+# Agent Pool 검증 (Tier 1 에이전트)
+pytest tests/e2e/test_agent_pool_tier1.py -v
+
+# 커버리지 포함
+pytest --cov --cov-report=html
+
+# 상세 가이드
+cat tests/README.md
 ```
 
 ---
