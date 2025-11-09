@@ -42,7 +42,8 @@ def prompt_llm(prompt_text):
 
         return message.content[0].text.strip()
 
-    except Exception:
+    except Exception as e:
+        logger.debug(f"LLM API call failed: {e}")
         return None
 
 

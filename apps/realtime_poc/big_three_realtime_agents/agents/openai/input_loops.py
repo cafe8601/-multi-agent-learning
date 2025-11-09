@@ -272,6 +272,12 @@ class InputHandler:
         }
 
         self.logger.info(f"Sending text message: {text}")
+
+        # Validate WebSocket connection before sending
+        if not self.ws:
+            self.logger.warning("No WebSocket connection - cannot send message")
+            return
+
         self.ws.send(json.dumps(event))
 
         response_event = {"type": "response.create", "response": {}}

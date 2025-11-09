@@ -82,8 +82,8 @@ def create_browser_tool(agent_name: str, browser_agent, logger: logging.Logger):
         # Cleanup browser
         try:
             temp_browser.cleanup()
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"Browser cleanup failed: {e}")
 
         if result.get("ok"):
             return {
