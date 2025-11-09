@@ -17,19 +17,44 @@ initDatabase();
 // Store WebSocket clients
 const wsClients = new Set<any>();
 
+// SECURITY WARNING: This server currently has NO authentication or authorization!
+// CORS is set to '*' allowing all origins - suitable ONLY for development.
+// For production use:
+// 1. Implement authentication (API keys, JWT, OAuth)
+// 2. Restrict CORS to specific origins via ALLOWED_ORIGINS env variable
+// 3. Add rate limiting to prevent DoS attacks
+// 4. Implement input validation and sanitization
+// 5. Use HTTPS in production (configure reverse proxy)
+
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['*'];
+
 // Create Bun server with HTTP and WebSocket support
 const server = Bun.serve({
   port: 4000,
-  
+
   async fetch(req: Request) {
     const url = new URL(req.url);
-    
+
     // Handle CORS
+    const origin = req.headers.get('origin') || '*';
+    const allowOrigin = isDevelopment || allowedOrigins.includes('*') || allowedOrigins.includes(origin)
+      ? origin
+      : allowedOrigins[0] || '*';
+
     const headers = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
+
+    // Log security warning in production if using permissive CORS
+    if (!isDevelopment && allowOrigin === '*') {
+      console.warn(
+        '[SECURITY WARNING] Using wildcard CORS in production. ' +
+        'Set ALLOWED_ORIGINS environment variable to restrict origins.'
+      );
+    }
     
     // Handle preflight
     if (req.method === 'OPTIONS') {

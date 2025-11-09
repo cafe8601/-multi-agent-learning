@@ -10,7 +10,8 @@ import type { Theme, ThemeSearchQuery, ThemeValidationError, ApiResponse } from 
 
 // Utility functions
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 16);
+  // Use cryptographically secure random UUID instead of Math.random()
+  return crypto.randomUUID().replace(/-/g, '').substring(0, 16);
 }
 
 function validateTheme(theme: Partial<Theme>): ThemeValidationError[] {

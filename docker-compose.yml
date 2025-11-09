@@ -73,7 +73,7 @@ services:
 
   # Optional: Monitoring with Prometheus
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.48.1  # Pinned version for reproducibility
     container_name: big-three-prometheus
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -96,13 +96,15 @@ services:
 
   # Optional: Grafana for visualization
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.2.3  # Pinned version for reproducibility
     container_name: big-three-grafana
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      # SECURITY: Change default password via environment variable
+      # Set GRAFANA_ADMIN_PASSWORD in .env file - DO NOT use default "admin"
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     ports:
       - "3000:3000"
@@ -121,7 +123,7 @@ services:
 
   # Observability Server (Event ingestion & WebSocket streaming)
   observability-server:
-    image: oven/bun:latest
+    image: oven/bun:1.0.20  # Pinned version for reproducibility
     container_name: big-three-observability-server
     working_dir: /app
     volumes:
@@ -134,6 +136,9 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - DB_PATH=/app/data/events.db
+      # SECURITY: Restrict CORS origins in production
+      # Set ALLOWED_ORIGINS in .env file (comma-separated)
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
     deploy:
       resources:
         limits:

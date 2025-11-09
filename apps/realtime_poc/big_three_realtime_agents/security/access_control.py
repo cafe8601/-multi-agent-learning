@@ -28,6 +28,7 @@ class AccessControl:
     Policy-based access control system.
 
     Manages permissions for agents and operations.
+    Uses secure defaults: deny-by-default policy.
 
     Example:
         >>> access = AccessControl()
@@ -36,13 +37,24 @@ class AccessControl:
         ...     # Allow operation
     """
 
-    def __init__(self):
-        """Initialize access control."""
+    def __init__(self, allow_system_admin: bool = False):
+        """
+        Initialize access control.
+
+        Args:
+            allow_system_admin: Whether to grant admin permission to "system" user.
+                               Default is False for security. Enable only if needed.
+        """
         self.permissions: Dict[str, Set[Permission]] = {}
         self.policies: List[Dict[str, Any]] = []
 
-        # Default: allow all for system user
-        self.grant_permission("system", Permission.ADMIN)
+        # Only grant system admin if explicitly enabled
+        if allow_system_admin:
+            self.grant_permission("system", Permission.ADMIN)
+            logger.warning(
+                "System admin user enabled. This grants full permissions to 'system' user. "
+                "Use only in trusted environments."
+            )
 
     def grant_permission(self, user: str, permission: Permission) -> None:
         """
@@ -119,23 +131,39 @@ class AccessControl:
 
         Returns:
             True if allowed by policies
-        """
-        # If no policies, allow
-        if not self.policies:
-            return True
 
-        # Check each policy (simplified)
+        Note:
+            Uses secure default: deny-by-default if no policies are configured.
+            Administrators must explicitly configure allow policies.
+        """
+        # Secure default: deny if no policies configured
+        if not self.policies:
+            logger.warning(
+                f"No policies configured - denying {operation} for {user}. "
+                "Configure explicit allow policies for operations."
+            )
+            return False
+
+        # Check each policy
+        allowed = False
         for policy in self.policies:
             rules = policy.get("rules", {})
 
-            # Block list check
+            # Block list check (takes precedence)
             if operation in rules.get("blocked_operations", []):
                 logger.warning(
                     f"Policy {policy['policy_id']} blocked {operation} for {user}"
                 )
                 return False
 
-        return True
+            # Allow list check
+            if operation in rules.get("allowed_operations", []):
+                allowed = True
+
+        if not allowed:
+            logger.info(f"No policy allows {operation} for {user}")
+
+        return allowed
 
     def get_user_permissions(self, user: str) -> List[str]:
         """Get all permissions for user."""
