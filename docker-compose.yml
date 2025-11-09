@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  # Main Big Three Agents service
+  big-three-agents:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: big-three-realtime-agents
+    volumes:
+      # Agent working directory (persistent)
+      - ./apps/content-gen:/app/apps/content-gen:rw
+      # Output logs (persistent)
+      - ./output_logs:/app/output_logs:rw
+      # Environment configuration (read-only)
+      - ./.env:/app/.env:ro
+      # Agent pool definitions (read-only)
+      - ./agentpool:/app/agentpool:ro
+    environment:
+      - PYTHONPATH=/app
+      - AGENT_WORKING_DIRECTORY=/app/apps/content-gen
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    stdin_open: true
+    tty: true
+    # network_mode: host  # Required for browser automation (less secure)
+    # Better alternative: use bridge with port mapping
+    ports:
+      - "8000:8000"  # Potential web UI
+      - "8080:8080"  # Potential API
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - redis
+    networks:
+      - big-three-network
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: big-three-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - big-three-network
+
+  # Optional: Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: big-three-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    networks:
+      - big-three-network
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: big-three-grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - big-three-network
+    profiles:
+      - monitoring
+
+networks:
+  big-three-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
