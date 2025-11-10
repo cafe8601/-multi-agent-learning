@@ -155,6 +155,17 @@ echo "--------------------------------------------------"
 # Observability
 check_optional "OBSERVABILITY_SERVER_URL" "http://localhost:4000/events"
 
+# Observability API key (warn in production)
+if [ "${NODE_ENV:-}" = "production" ] || [ "${REQUIRE_AUTH:-}" = "true" ]; then
+    if [ -z "${OBSERVABILITY_API_KEY:-}" ]; then
+        log_error "OBSERVABILITY_API_KEY required in production or when REQUIRE_AUTH=true"
+    else
+        log_success "OBSERVABILITY_API_KEY is set (production mode)"
+    fi
+else
+    check_optional "OBSERVABILITY_API_KEY" "not required in development"
+fi
+
 # OpenAI Realtime
 check_optional "REALTIME_MODEL" "gpt-realtime-2025-08-28"
 check_optional "REALTIME_AGENT_VOICE" "shimmer"

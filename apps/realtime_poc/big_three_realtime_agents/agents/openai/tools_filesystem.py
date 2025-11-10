@@ -23,9 +23,10 @@ class FilesystemTools:
     def open_file(self, file_path: str) -> Dict[str, Any]:
         """
         Open a file in VS Code or default system application with security validations.
-        
+
         Security features:
         - Path traversal prevention
+        - Command injection prevention (shell=False)
         """
         try:
             full_path = AGENT_WORKING_DIRECTORY / file_path
@@ -33,7 +34,7 @@ class FilesystemTools:
             # Security: Path traversal prevention
             real_path = full_path.resolve()
             base_path = AGENT_WORKING_DIRECTORY.resolve()
-            
+
             if not str(real_path).startswith(str(base_path)):
                 return {
                     "ok": False,
@@ -52,12 +53,12 @@ class FilesystemTools:
             file_ext = full_path.suffix.lower()
             is_media = file_ext in media_extensions
 
-            # Choose command based on file type
+            # Build command safely (no shell injection)
             if is_media:
-                command = f'open "{full_path}"'
+                command = ["open", str(real_path)]
                 app_name = "default system application"
             else:
-                command = f'code "{full_path}"'
+                command = ["code", str(real_path)]
                 app_name = "VS Code"
 
             self.ui_logger(
@@ -66,8 +67,9 @@ class FilesystemTools:
                 style="cyan",
             )
 
+            # Security: shell=False prevents command injection
             result = subprocess.run(
-                command, shell=True, capture_output=True, text=True, timeout=5
+                command, shell=False, capture_output=True, text=True, timeout=5
             )
 
             if result.returncode == 0:

@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 import logging
 
-from ...config import OBSERVABILITY_SERVER_URL
+from ...config import OBSERVABILITY_SERVER_URL, OBSERVABILITY_API_KEY
 from ...timeouts import OBSERVABILITY_EVENT_TIMEOUT
 from ...utils.retry import retry_with_backoff
 from ...utils.circuit_breaker import get_circuit_breaker, CircuitBreakerError
@@ -107,13 +107,20 @@ def send_http_event(
     try:
         # Execute with circuit breaker protection
         def send_request():
+            # Build headers with optional API key
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "BigThreeAgents/1.0",
+            }
+
+            # Add API key if configured
+            if OBSERVABILITY_API_KEY:
+                headers["X-API-Key"] = OBSERVABILITY_API_KEY
+
             req = urllib.request.Request(
                 OBSERVABILITY_SERVER_URL,
                 data=json.dumps(event_data).encode("utf-8"),
-                headers={
-                    "Content-Type": "application/json",
-                    "User-Agent": "BigThreeAgents/1.0",
-                },
+                headers=headers,
             )
 
             with urllib.request.urlopen(req, timeout=OBSERVABILITY_EVENT_TIMEOUT) as response:

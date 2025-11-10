@@ -41,6 +41,25 @@ const metrics = {
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['*'];
 
+// API Key Authentication (optional in development, required in production)
+const API_KEY = process.env.OBSERVABILITY_API_KEY;
+const requireAuth = !isDevelopment || process.env.REQUIRE_AUTH === 'true';
+
+// Authentication helper
+function isAuthenticated(req: Request): boolean {
+  if (!requireAuth) {
+    return true;  // Skip auth in development (unless REQUIRE_AUTH=true)
+  }
+
+  if (!API_KEY) {
+    console.warn('[SECURITY] OBSERVABILITY_API_KEY not set but auth is required');
+    return false;
+  }
+
+  const authHeader = req.headers.get('x-api-key') || req.headers.get('authorization');
+  return authHeader === API_KEY || authHeader === `Bearer ${API_KEY}`;
+}
+
 // Create Bun server with HTTP and WebSocket support
 const server = Bun.serve({
   port: 4000,
@@ -146,6 +165,14 @@ const server = Bun.serve({
 
     // POST /events - Receive new events
     if (url.pathname === '/events' && req.method === 'POST') {
+      // Authentication check
+      if (!isAuthenticated(req)) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      }
+
       try {
         const event: HookEvent = await req.json();
         
