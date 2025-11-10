@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     openai_api_key: str
+    api_key: str = ""  # Optional API key for authentication
+    require_auth: bool = False  # Require authentication (set True in production)
     video_storage_path: str = "./videos"
     max_poll_timeout: int = 600
     default_model: str = "sora-2"

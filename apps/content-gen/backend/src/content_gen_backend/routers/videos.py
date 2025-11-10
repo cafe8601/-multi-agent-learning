@@ -1,7 +1,7 @@
 """API endpoints for video generation."""
 
 from typing import Optional, Literal, Annotated
-from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Query
+from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Query, Header, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import field_validator, Field
 import io
@@ -23,9 +23,52 @@ router = APIRouter(prefix="/api/v1/videos", tags=["videos"])
 sora_service = SoraService()
 storage_service = StorageService()
 
+# Get rate limiter from app (will be set in main.py)
+from fastapi import Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
-@router.post("", response_model=VideoJob, status_code=201)
+limiter = Limiter(key_func=get_remote_address)
+
+
+# Authentication dependency
+async def verify_api_key(x_api_key: str = Header(None, alias="X-API-Key")):
+    """
+    Verify API key from request headers.
+
+    Args:
+        x_api_key: API key from X-API-Key header
+
+    Raises:
+        HTTPException: If authentication required but key is invalid
+
+    Returns:
+        API key if valid
+    """
+    # Skip auth if not required (development mode)
+    if not settings.require_auth:
+        return None
+
+    # Require API key in production
+    if not settings.api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="API key not configured on server. Set CONTENT_GEN_API_KEY."
+        )
+
+    if not x_api_key or x_api_key != settings.api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key. Provide X-API-Key header."
+        )
+
+    return x_api_key
+
+
+@router.post("", response_model=VideoJob, status_code=201, dependencies=[Depends(verify_api_key)])
+@limiter.limit("10/minute")  # Rate limit: 10 video creations per minute
 async def create_video(
+    request: Request,
     prompt: str = Form(...),
     model: Literal["sora-2", "sora-2-pro"] = Form(settings.default_model),
     seconds: int = Form(settings.default_seconds),
@@ -94,7 +137,7 @@ async def create_video(
         raise HTTPException(status_code=500, detail=f"Failed to create video: {str(e)}")
 
 
-@router.get("/{video_id}", response_model=VideoJob)
+@router.get("/{video_id}", response_model=VideoJob, dependencies=[Depends(verify_api_key)])
 async def get_video_status(video_id: str):
     """
     Get the current status of a video generation job.
@@ -118,7 +161,7 @@ async def get_video_status(video_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to fetch video status: {str(e)}")
 
 
-@router.get("/{video_id}/poll", response_model=VideoJob)
+@router.get("/{video_id}/poll", response_model=VideoJob, dependencies=[Depends(verify_api_key)])
 async def poll_video(video_id: str, timeout: int = Query(300, ge=1, le=600)):
     """
     Poll video status until completion or timeout.
@@ -146,7 +189,7 @@ async def poll_video(video_id: str, timeout: int = Query(300, ge=1, le=600)):
         raise HTTPException(status_code=500, detail=f"Failed to poll video: {str(e)}")
 
 
-@router.get("/{video_id}/content")
+@router.get("/{video_id}/content", dependencies=[Depends(verify_api_key)])
 async def download_video_content(
     video_id: str, variant: Literal["video", "thumbnail", "spritesheet"] = Query("video")
 ):
@@ -206,7 +249,7 @@ async def download_video_content(
         raise HTTPException(status_code=500, detail=f"Failed to download video content: {str(e)}")
 
 
-@router.get("", response_model=VideoListResponse)
+@router.get("", response_model=VideoListResponse, dependencies=[Depends(verify_api_key)])
 async def list_videos(
     limit: int = Query(20, ge=1, le=100),
     after: Optional[str] = Query(None),
@@ -235,8 +278,9 @@ async def list_videos(
         raise HTTPException(status_code=500, detail=f"Failed to list videos: {str(e)}")
 
 
-@router.delete("/{video_id}", response_model=VideoDeleteResponse)
-async def delete_video(video_id: str):
+@router.delete("/{video_id}", response_model=VideoDeleteResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("20/minute")  # Rate limit: 20 deletions per minute
+async def delete_video(request: Request, video_id: str):
     """
     Delete a video from OpenAI storage and local cache.
 
@@ -265,7 +309,7 @@ async def delete_video(video_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete video: {str(e)}")
 
 
-@router.post("/{video_id}/remix", response_model=VideoJob, status_code=201)
+@router.post("/{video_id}/remix", response_model=VideoJob, status_code=201, dependencies=[Depends(verify_api_key)])
 async def remix_video(video_id: str, request: RemixVideoRequest):
     """
     Create a remix of an existing video with modifications.

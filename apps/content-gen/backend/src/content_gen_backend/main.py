@@ -1,7 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from .routers import videos
 from .utils.logging_setup import logger
+
+# Rate limiter setup
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/hour"])
 
 app = FastAPI(
     title="Content Gen Backend",
@@ -9,13 +15,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS middleware - Restricted for security
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3333", "http://localhost:3334", "http://localhost:5173"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Specific methods only
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],  # Specific headers only
 )
 
 # Include routers

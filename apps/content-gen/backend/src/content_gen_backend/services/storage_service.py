@@ -1,5 +1,6 @@
 """Storage service for managing downloaded video files."""
 
+import re
 import aiofiles
 from pathlib import Path
 from typing import Optional, Literal
@@ -90,20 +91,45 @@ class StorageService:
 
     async def delete_video_files(self, video_id: str) -> int:
         """
-        Delete all files associated with a video ID.
+        Delete all files associated with a video ID (with path traversal protection).
 
         Args:
             video_id: Video identifier
 
         Returns:
             Number of files deleted
+
+        Raises:
+            ValueError: If video_id contains invalid characters
         """
         deleted_count = 0
 
         try:
+            # Security: Validate video_id format (alphanumeric, hyphen, underscore only)
+            if not re.match(r'^[a-zA-Z0-9_-]+$', video_id):
+                raise ValueError(
+                    f"Invalid video_id format: {video_id}. "
+                    "Only alphanumeric, hyphen, and underscore allowed."
+                )
+
             # Find all files matching the video_id pattern
             pattern = f"{video_id}_*"
             for filepath in self.storage_path.glob(pattern):
+                # Security: Ensure file is actually in storage_path (prevent traversal)
+                try:
+                    resolved = filepath.resolve()
+                    storage_resolved = self.storage_path.resolve()
+
+                    if not str(resolved).startswith(str(storage_resolved)):
+                        logger.warning(
+                            f"Path traversal attempt detected: {filepath} "
+                            f"is outside {self.storage_path}"
+                        )
+                        continue
+                except (ValueError, OSError) as e:
+                    logger.warning(f"Invalid path detected: {filepath}, error: {e}")
+                    continue
+
                 filepath.unlink()
                 deleted_count += 1
                 logger.info(f"Deleted file: {filepath}")
@@ -111,6 +137,9 @@ class StorageService:
             logger.info(f"Deleted {deleted_count} files for video {video_id}")
             return deleted_count
 
+        except ValueError:
+            # Re-raise validation errors
+            raise
         except Exception as e:
             logger.error(f"Error deleting files for video {video_id}: {str(e)}", exc_info=True)
             raise
