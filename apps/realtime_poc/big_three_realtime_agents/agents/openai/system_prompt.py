@@ -60,6 +60,8 @@ class SystemPromptManager:
                     for name, data in agents.items()
                 ],
             ]
-            base_prompt = f"{base_prompt}\n\n{'\n'.join(roster_lines)}"
+            # Compute join outside f-string to avoid backslash syntax error
+            roster_text = '\n'.join(roster_lines)
+            base_prompt = f"{base_prompt}\n\n{roster_text}"
 
         return base_prompt

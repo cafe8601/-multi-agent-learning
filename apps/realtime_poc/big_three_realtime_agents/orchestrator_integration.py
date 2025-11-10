@@ -211,7 +211,7 @@ class OrchestratorIntegration:
 
         return result
 
-    def execute_workflow_with_validation(
+    async def execute_workflow_with_validation(
         self,
         plan_id: str
     ) -> Dict[str, Any]:

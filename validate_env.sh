@@ -139,13 +139,13 @@ if check_required "ANTHROPIC_API_KEY"; then
     has_anthropic=true
 fi
 
-if check_required "GOOGLE_API_KEY"; then
+if check_required "GEMINI_API_KEY"; then
     has_gemini=true
 fi
 
 # Verify at least one API key is present
 if ! $has_openai && ! $has_anthropic && ! $has_gemini; then
-    log_error "At least one API key required (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY)"
+    log_error "At least one API key required (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)"
 fi
 
 echo ""
